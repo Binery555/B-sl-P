@@ -1,29 +1,14 @@
 <!DOCTYPE html>
-<html lang="en" >
-<head>
-  <meta charset="UTF-8">
-  <title>Untitled</title>
-  
-
-</head>
-<body>
-<!-- partial:index.partial.html -->
-<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Binance Futures Positions</title>
   <!-- Binance Plex Webfont -->
-  <link
-    href="https://db.onlinewebfonts.com/c/d05c19ccecf7003d248c60ffd6b5e8f7?family=Binance+PLEX"
-    rel="stylesheet"
-  />
+  <link href="https://db.onlinewebfonts.com/c/d05c19ccecf7003d248c60ffd6b5e8f7?family=Binance+PLEX" rel="stylesheet"/>
   <!-- Font Awesome -->
-  <link
-    rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"
-  />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"/>
+
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -37,8 +22,6 @@
       --highlight: #f0b90b;
     }
     body {
-      margin: 0;
-      padding: 0;
       background-color: var(--panel-bg);
       color: #b0b0b0;
       font-family: 'Binance PLEX', sans-serif;
@@ -77,7 +60,7 @@
     .trade-panel .header { display: flex; align-items: center; margin-bottom: 8px; }
     .icon-buy { background: var(--text-green); color: #fff; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; margin-right: 8px; }
     .symbol { font-size: 14px; font-weight: 500; margin-right: 6px; color: var(--text-primary); }
-    .tag { background: var(--secondary-bg); color: var(--text-secondary); font-size: 10px; padding: 1px 4px; margin-right: 4px; text-transform: uppercase; }
+    .tag { background: var(--secondary-bg); color: var(--text-secondary); font-size: 10px; padding: 1px 4px; margin-right: 4px; text-transform: uppercase; border-radius: 3px; }
     .exclamations { display: flex; margin-left: 6px; }
     .exclamations span { position: relative; width: 2px; height: 10px; background: var(--secondary-bg); margin: 0 1px; border-radius: 1px; transition: background 0.3s ease; }
     .exclamations span::after { content: ''; position: absolute; bottom: -3px; left: 50%; transform: translateX(-50%); width: 2px; height: 2px; background: inherit; border-radius: 50%; }
@@ -133,225 +116,276 @@
   <div class="feed"></div>
 
   <script>
-    // per-symbol decimal precision map
+    /** -----------------------------
+     * Precision per symbol
+     * ------------------------------*/
     const symbolPrecisions = {
-      BTCUSDT: 2, ETHUSDT: 2, BNBUSDT: 2, ADAUSDT: 3,
-      SOLUSDT: 3, XRPUSDT: 4, DOTUSDT: 3, LTCUSDT: 2,
-      LINKUSDT: 3, DOGEUSDT: 4,
-      AAVEUSDT: 3, SUSHIUSDT: 3, SHIBUSDT: 6, COMPUSDT: 3, ETCUSDT: 3, ZECUSDT: 2, XMRUSDT: 2, LRCUSDT: 4, QNTUSDT: 3, CRVUSDT: 4,
-      UNIUSDT: 3, BCHUSDT: 2, XLMUSDT: 4, ATOMUSDT: 3, MATICUSDT: 4, AVAXUSDT: 3,
-      TRXUSDT: 4, EOSUSDT: 3, NEARUSDT: 3, FILUSDT: 3
+      BTCUSDT: 2, ETHUSDT: 2, BNBUSDT: 2, ADAUSDT: 3, SOLUSDT: 3, XRPUSDT: 4, DOTUSDT: 3, LTCUSDT: 2,
+      LINKUSDT: 3, DOGEUSDT: 4, AAVEUSDT: 3, SUSHIUSDT: 3, SHIBUSDT: 6, COMPUSDT: 3, ETCUSDT: 3, ZECUSDT: 2,
+      XMRUSDT: 2, LRCUSDT: 4, QNTUSDT: 3, CRVUSDT: 4, UNIUSDT: 3, BCHUSDT: 2, XLMUSDT: 4, ATOMUSDT: 3,
+      MATICUSDT: 4, AVAXUSDT: 3, TRXUSDT: 4, EOSUSDT: 3, NEARUSDT: 3, FILUSDT: 3
     };
     function getPrecision(sym) { return symbolPrecisions[sym] ?? 2; }
-    function formatNumber(sym, x) {
+    function formatBySymbol(sym, x) {
       const p = getPrecision(sym);
       const s = x.toFixed(p);
-      const [intPart, decPart] = s.split('.');
-      const intFmt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-      return decPart !== undefined ? `${intFmt}.${decPart}` : intFmt;
+      const [i, d] = s.split('.');
+      const iFmt = i.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      return d !== undefined ? `${iFmt}.${d}` : iFmt;
     }
-
-    const maintenanceMarginRates = {
-      BTCUSDT: 0.004, ETHUSDT: 0.005, BNBUSDT: 0.005, ADAUSDT: 0.01,
-      SOLUSDT: 0.008, XRPUSDT: 0.01, DOTUSDT: 0.01, LTCUSDT: 0.01,
-      LINKUSDT: 0.01, DOGEUSDT: 0.012,
-      AAVEUSDT: 0.01, SUSHIUSDT: 0.015, SHIBUSDT: 0.02, COMPUSDT: 0.01, ETCUSDT: 0.01, ZECUSDT: 0.015, XMRUSDT: 0.02, LRCUSDT: 0.02, QNTUSDT: 0.015, CRVUSDT: 0.02,
-      UNIUSDT: 0.01, BCHUSDT: 0.01, XLMUSDT: 0.015, ATOMUSDT: 0.01, MATICUSDT: 0.01, AVAXUSDT: 0.01,
-      TRXUSDT: 0.02, EOSUSDT: 0.015, NEARUSDT: 0.02, FILUSDT: 0.015
-    };
-    function getMaintRate(sym) { return maintenanceMarginRates[sym] || 0.005; }
-
-    // settings
-    const symbols         = Object.keys(symbolPrecisions);
-    const allowedLeverages = [10, 15, 20, 50];
-    const minPercent      = 100;
-    const maxPercent      = 1800;
-    const maxLossPercent  = 200;
-    const minMargin       = 10;    // USDT
-    const maxMargin       = 100;   // USDT
-    const updateInterval  = 2000;  // ms between updates
-    const maxDeltaPct     = 1;     // ±1% jitter per update
-    const driftPerUpdate  = 0.0001;
-
-    // exactly 20 trades, 0 random non-adjacent losers (all profits)
-    const totalCount = 20;
-    function pickLosers(count, total) {
-      const losers = [];
-      while (losers.length < count) {
-        const idx = Math.floor(Math.random() * total);
-        if (losers.includes(idx)) continue;
-        if (losers.some(x => Math.abs(x - idx) === 1)) continue;
-        losers.push(idx);
-      }
-      return losers;
-    }
-    const loseIdxs = pickLosers(0, totalCount);
-
     function formatTwoDP(x) {
       const s = x.toFixed(2);
-      const [intPart, decPart] = s.split('.');
-      return intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",") + "." + decPart;
+      const [i, d] = s.split('.');
+      return i.replace(/\B(?=(\d{3})+(?!\d))/g, ",") + "." + d;
     }
 
-    async function initTrades() {
+    /** -----------------------------
+     * Maintenance Margin Rate (simplified symbol map)
+     * ------------------------------*/
+    const maintenanceMarginRates = {
+      BTCUSDT: 0.004, ETHUSDT: 0.005, BNBUSDT: 0.005, ADAUSDT: 0.010, SOLUSDT: 0.008, XRPUSDT: 0.010,
+      DOTUSDT: 0.010, LTCUSDT: 0.010, LINKUSDT: 0.010, DOGEUSDT: 0.012, AAVEUSDT: 0.010, SUSHIUSDT: 0.015,
+      SHIBUSDT: 0.020, COMPUSDT: 0.010, ETCUSDT: 0.010, ZECUSDT: 0.015, XMRUSDT: 0.020, LRCUSDT: 0.020,
+      QNTUSDT: 0.015, CRVUSDT: 0.020, UNIUSDT: 0.010, BCHUSDT: 0.010, XLMUSDT: 0.015, ATOMUSDT: 0.010,
+      MATICUSDT: 0.010, AVAXUSDT: 0.010, TRXUSDT: 0.020, EOSUSDT: 0.015, NEARUSDT: 0.020, FILUSDT: 0.015
+    };
+    function getMaintRate(sym) { return maintenanceMarginRates[sym] ?? 0.01; }
+
+    /** -----------------------------
+     * Settings
+     * ------------------------------*/
+    const symbols = Object.keys(symbolPrecisions);
+    const allowedLeverages = [10, 20, 50, 100];
+    const updateInterval = 2000;                  // ms
+    const driftPerUpdate = 0.0002;                // slow upward drift
+    const jitter = 0.0015;                        // ±0.15% jitter each tick
+    const tradeCount = 20;                        // number of panels
+    const marginMin = 50;                         // requested margin range
+    const marginMax = 1000;
+
+    // helpers
+    const randRange = (a, b) => a + Math.random() * (b - a);
+
+    /** -----------------------------
+     * Core calcs (Linear USDT, Long)
+     * ------------------------------*/
+    // Qty opened at entry using *used* margin and leverage
+    const qtyFrom = (marginUsed, leverage, entry) => (leverage * marginUsed) / entry;
+
+    // Unrealized PnL (long) = (Mark - Entry) * Qty
+    const upnl = (mark, entry, qty) => (mark - entry) * qty;
+
+    // ROI% = PnL / usedMargin * 100
+    const roiPct = (pnl, usedMargin) => (pnl / usedMargin) * 100;
+
+    // Maintenance = MMR * Mark * Qty
+    const maintenance = (mmr, mark, qty) => mmr * mark * qty;
+
+    // Margin Balance (equity in the position bucket):
+    // Cross: effectiveMargin (used + extra buffer) + uPnL
+    const marginBalance = (effectiveMargin, uPnL) => effectiveMargin + uPnL;
+
+    // Liquidation Price (long) solving: M_eff + (P - E)*Q = MMR*P*Q
+    // => P = (Q*E - M_eff) / (Q*(1 - MMR))
+    function liqPriceLong(entry, leverage, mmr, marginUsed, effectiveMargin) {
+      const Q = qtyFrom(marginUsed, leverage, entry);
+      const denom = Q * (1 - mmr);
+      const num = Q * entry - effectiveMargin;
+      if (denom <= 0) return null;
+      const P = num / denom;
+      if (!isFinite(P) || P <= 0) return null;
+      return P;
+    }
+
+    /** -----------------------------
+     * Build UI
+     * ------------------------------*/
+    const feedDiv = document.querySelector('.feed');
+
+    // small visual meter bars
+    function meterBars() {
+      let html = '';
+      const totalBars = 4;
+      const greenBars = Math.floor(Math.random() * totalBars) + 1;
+      for (let j = 0; j < totalBars; j++) {
+        html += `<span class="${j < greenBars ? 'green' : ''}"></span>`;
+      }
+      return html;
+    }
+
+    // Create one trade panel
+    function createPanel({ sym, leverage, entry, mark, usedMargin, effMargin, mmr }) {
+      const mode = 'Cross'; // <— forced Cross only
+      const notionalUSDT = usedMargin * leverage;
+      const qty = qtyFrom(usedMargin, leverage, entry);
+      const pnl = upnl(mark, entry, qty);
+      const roi = roiPct(pnl, usedMargin);
+      const maint = maintenance(mmr, mark, qty);
+      const mBal = marginBalance(effMargin, pnl);
+      const mRatio = marginRatioPct(maint, mBal);
+      const liq = liqPriceLong(entry, leverage, mmr, usedMargin, effMargin);
+
+      const panel = document.createElement('div');
+      panel.className = 'trade-panel';
+      panel.innerHTML = `
+        <div class="header">
+          <span class="icon-buy">B</span>
+          <span class="symbol">${sym}</span>
+          <span class="tag">PERP</span>
+          <span class="tag">${mode} ${leverage}×</span>
+          <span class="exclamations">${meterBars()}</span>
+          <i class="fas fa-share-alt share"></i>
+        </div>
+
+        <div class="content-columns">
+          <div class="column">
+            <div class="stat">
+              <div class="label">PNL (USDT)</div>
+              <div class="value pnl ${pnl < 0 ? 'red' : 'green'}">${formatTwoDP(pnl)}</div>
+            </div>
+            <div class="stat">
+              <div class="label">Size (USDT)</div>
+              <div class="value size">${formatTwoDP(notionalUSDT)}</div>
+            </div>
+            <div class="stat">
+              <div class="label">Entry Price (USDT)</div>
+              <div class="value entry">${formatBySymbol(sym, entry)}</div>
+            </div>
+          </div>
+
+          <div class="column center">
+            <div class="stat">
+              <div class="label no-line">Margin (USDT)</div>
+              <div class="value margin">${formatTwoDP(usedMargin)}</div>
+            </div>
+            <div class="stat">
+              <div class="label no-line">Mark Price (USDT)</div>
+              <div class="value mark">${formatBySymbol(sym, mark)}</div>
+            </div>
+          </div>
+
+          <div class="column right">
+            <div class="stat">
+              <div class="label">ROI</div>
+              <div class="value percent roi ${roi < 0 ? 'red' : 'green'}">${(roi >= 0 ? '+' : '') + roi.toFixed(2)}%</div>
+            </div>
+            <div class="stat margin-ratio">
+              <div class="label">Margin Ratio</div>
+              <div class="value percent margin-ratio-value ${mRatio >= 80 ? 'red' : 'green'}">${mRatio.toFixed(2)}%</div>
+            </div>
+            <div class="stat">
+              <div class="label no-line">Liq. Price (USDT)</div>
+              <div class="value liq">${liq === null ? '—' : formatBySymbol(sym, liq)}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn">Leverage</button>
+          <button class="btn">TP/SL</button>
+          <button class="btn">Close</button>
+          <button class="btn">Reverse</button>
+        </div>
+      `;
+
+      return {
+        node: panel,
+        sym, leverage, mmr,
+        entry,
+        usedMargin,
+        effMargin,
+        qty,
+        mark
+      };
+    }
+
+    // Margin Ratio % = Maintenance / MarginBalance * 100
+    const marginRatioPct = (maint, mBal) => (mBal <= 0 ? 100 : (maint / mBal) * 100);
+
+    /** -----------------------------
+     * Live init + update
+     * ------------------------------*/
+    async function init() {
       try {
-        const res  = await fetch('https://api.binance.com/api/v3/ticker/price');
-        const data = await res.json();
-        const priceMap = Object.fromEntries(data.map(d => [d.symbol, parseFloat(d.price)]));
+        const res = await fetch('https://api.binance.com/api/v3/ticker/price');
+        const list = await res.json();
+        const priceMap = Object.fromEntries(list.map(d => [d.symbol, parseFloat(d.price)]));
 
-        const feedDiv  = document.querySelector('.feed');
-        const trades   = [];
+        const trades = [];
 
-        for (let i = 0; i < totalCount; i++) {
-          const sym    = symbols[i % symbols.length];
-          const price  = priceMap[sym] || 0;
-          const isLoss = loseIdxs.includes(i);
+        for (let i = 0; i < tradeCount; i++) {
+          const sym = symbols[i % symbols.length];
+          const live = priceMap[sym];
+          if (!live || !isFinite(live)) continue;
 
-          const entryPrice  = price * 0.94;
-          const initialMark = price * 0.98;
-          const leverage    = allowedLeverages[Math.floor(Math.random() * allowedLeverages.length)];
-          const margin      = Math.random() * (maxMargin - minMargin) + minMargin;
+          // entry ≈ 6% lower than live; mark ≈ 2% lower than live
+          const entry = live * 0.94;
+          const mark0 = live * 0.98;
 
-          let rawPct = Math.random() * (maxPercent - minPercent) + minPercent;
-          rawPct = isLoss ? -rawPct : rawPct;
+          const leverage = allowedLeverages[Math.floor(Math.random() * allowedLeverages.length)];
 
-          let pnl = margin * Math.abs(rawPct) / 100 * (isLoss ? -1 : 1);
-          const minPnL = margin * minPercent / 100;
-          const maxPnL = margin * maxPercent / 100;
-          pnl = isLoss
-            ? -Math.min(maxPnL, Math.max(minPnL, -pnl))
-            :  Math.min(maxPnL, Math.max(minPnL,  pnl));
+          // Margin used to open the position (USDT)
+          const usedMargin = randRange(marginMin, marginMax);
 
-          const liqPrice    = entryPrice * (1 - 1 / leverage);
-          const notional    = margin * leverage;
-          const maintenance = notional * getMaintRate(sym);
-          const equity      = margin + pnl;
-          const mRatio      = maintenance / equity * 100;
+          // Cross-only: simulate extra wallet balance to widen liq buffer
+          const effMargin = usedMargin * randRange(1.5, 4.0);
 
-          const panel = document.createElement('div');
-          panel.className = 'trade-panel';
-          panel.innerHTML =
-            `<div class="header">
-               <span class="icon-buy">B</span>
-               <span class="symbol">${sym}</span>
-               <span class="tag">PERP</span>
-               <span class="tag">Cross ${leverage}×</span>
-               <span class="exclamations">${
-                 (() => {
-                   let html = '';
-                   const totalBars = 4;
-                   const greenBars = Math.floor(Math.random() * totalBars) + 1;
-                   for (let j = 0; j < totalBars; j++) {
-                     html += `<span class="${j < greenBars ? 'green' : ''}"></span>`;
-                   }
-                   return html;
-                 })()
-               }</span>
-               <i class="fas fa-share-alt share"></i>
-             </div>
-             <div class="content-columns">
-               <div class="column">
-                 <div class="stat">
-                   <div class="label">PNL (USDT)</div>
-                   <div class="value ${pnl < 0 ? 'red' : 'green'}">${formatTwoDP(pnl)}</div>
-                 </div>
-                 <div class="stat">
-                   <div class="label">Size (USDT)</div>
-                   <div class="value">${formatNumber(sym, notional)}</div>
-                 </div>
-                 <div class="stat">
-                   <div class="label">Entry Price (USDT)</div>
-                   <div class="value">${formatNumber(sym, entryPrice)}</div>
-                 </div>
-               </div>
-               <div class="column center">
-                 <div class="stat">
-                   <div class="label no-line">Margin (USDT)</div>
-                   <div class="value">${formatTwoDP(margin)}</div>
-                 </div>
-                 <div class="stat">
-                   <div class="label no-line">Mark Price (USDT)</div>
-                   <div class="value">${formatNumber(sym, initialMark)}</div>
-                 </div>
-               </div>
-               <div class="column right">
-                 <div class="stat">
-                   <div class="label">ROI</div>
-                   <div class="value percent ${pnl < 0 ? 'red' : 'green'}">${(pnl >= 0 ? '+' : '') + (Math.abs(rawPct)).toFixed(2)}%</div>
-                 </div>
-                 <div class="stat margin-ratio">
-                   <div class="label">Margin Ratio</div>
-                   <div class="value percent margin-ratio-value ${mRatio >= 80 ? 'red' : 'green'}">${mRatio.toFixed(2)}%</div>
-                 </div>
-                 <div class="stat">
-                   <div class="label no-line">Liq. Price (USDT)</div>
-                   <div class="value">${formatNumber(sym, liqPrice)}</div>
-                 </div>
-               </div>
-             </div>
-             <div class="actions">
-               <button class="btn">Leverage</button>
-               <button class="btn">TP/SL</button>
-               <button class="btn">Close</button>
-               <button class="btn">Reverse</button>
-             </div>`;
-          feedDiv.appendChild(panel);
-          trades.push({ panel, sym, margin, entryPrice, leverage, currentMark: initialMark });
+          const mmr = getMaintRate(sym);
+
+          const panelState = createPanel({
+            sym, leverage, entry, mark: mark0, usedMargin, effMargin, mmr
+          });
+
+          trades.push(panelState);
+          feedDiv.appendChild(panelState.node);
         }
 
-        // update loop
+        // periodic updates: gentle drift + small jitter; recalc all metrics from prices
         setInterval(() => {
-          trades.forEach((t, i) => {
-            const pnlEl = t.panel.querySelector('.value:not(.percent)');
-            const roiEl = t.panel.querySelector('.value.percent');
-            const sign  = parseFloat(roiEl.textContent) >= 0 ? 1 : -1;
-            let pct      = Math.abs(parseFloat(roiEl.textContent));
-            pct         += (Math.random() * 2 - 1) * maxDeltaPct;
-            pct         = Math.max(minPercent, Math.min(maxPercent, pct));
-            let pnl      = t.margin * pct / 100 * sign;
-            const minP   = t.margin * minPercent / 100;
-            const maxP   = t.margin * maxPercent / 100;
-            pnl         = sign > 0
-              ? Math.min(maxP, Math.max(minP, pnl))
-              : -Math.min(maxP, Math.max(minP, -pnl));
+          trades.forEach(t => {
+            // update mark with drift ± jitter
+            let drifted = t.mark * (1 + driftPerUpdate);
+            const j = (Math.random() * 2 - 1) * jitter;
+            drifted *= (1 + j);
+            t.mark = drifted;
 
-            t.currentMark *= 1 + driftPerUpdate;
-            const markP   = t.currentMark;
-            const liqP    = t.entryPrice * (1 - 1 / t.leverage);
-            const notional= t.margin * t.leverage;
-            const mRatio  = (notional * getMaintRate(t.sym)) / (t.margin + pnl) * 100;
+            // recompute metrics
+            const pnl = upnl(t.mark, t.entry, t.qty);
+            const roi = roiPct(pnl, t.usedMargin);
+            const maint = maintenance(t.mmr, t.mark, t.qty);
+            const mBal = marginBalance(t.effMargin, pnl);
+            const mRatio = marginRatioPct(maint, mBal);
+            const liq = liqPriceLong(t.entry, t.leverage, t.mmr, t.usedMargin, t.effMargin);
 
-            // update PNL
+            // update DOM
+            const pnlEl = t.node.querySelector('.value.pnl');
             pnlEl.textContent = formatTwoDP(pnl);
             pnlEl.classList.toggle('green', pnl >= 0);
             pnlEl.classList.toggle('red', pnl < 0);
 
-            // update Mark Price
-            t.panel.querySelectorAll('.value')[4].textContent = formatNumber(t.sym, markP);
+            t.node.querySelector('.value.mark').textContent = formatBySymbol(t.sym, t.mark);
 
-            // update ROI
-            roiEl.textContent = (pnl >= 0 ? '+' : '') + pct.toFixed(2) + '%';
-            roiEl.classList.toggle('green', pnl >= 0);
-            roiEl.classList.toggle('red', pnl < 0);
+            const roiEl = t.node.querySelector('.value.roi');
+            roiEl.textContent = (roi >= 0 ? '+' : '') + roi.toFixed(2) + '%';
+            roiEl.classList.toggle('green', roi >= 0);
+            roiEl.classList.toggle('red', roi < 0);
 
-            // update Margin Ratio
-            t.panel.querySelectorAll('.value.margin-ratio-value')[0].textContent = mRatio.toFixed(2) + '%';
+            const mrEl = t.node.querySelector('.value.margin-ratio-value');
+            mrEl.textContent = mRatio.toFixed(2) + '%';
+            mrEl.classList.toggle('green', mRatio < 80);
+            mrEl.classList.toggle('red', mRatio >= 80);
 
-            // update Liq. Price
-            t.panel.querySelectorAll('.value')[7].textContent = formatNumber(t.sym, liqP);
+            const liqEl = t.node.querySelector('.value.liq');
+            liqEl.textContent = (liq === null) ? '—' : formatBySymbol(t.sym, liq);
           });
         }, updateInterval);
 
-      } catch (err) {
-        console.error('Failed to fetch Binance prices:', err);
+      } catch (e) {
+        console.error('Failed to fetch Binance prices', e);
       }
     }
 
-    initTrades();
+    init();
   </script>
-</body>
-</html>
-<!-- partial -->
-  
 </body>
 </html>
