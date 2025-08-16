@@ -117,13 +117,20 @@
 
   <script>
     /** -----------------------------
-     * Precision per symbol
+     * Precision per symbol (added 30 more)
      * ------------------------------*/
     const symbolPrecisions = {
+      // existing 30
       BTCUSDT: 2, ETHUSDT: 2, BNBUSDT: 2, ADAUSDT: 3, SOLUSDT: 3, XRPUSDT: 4, DOTUSDT: 3, LTCUSDT: 2,
       LINKUSDT: 3, DOGEUSDT: 4, AAVEUSDT: 3, SUSHIUSDT: 3, SHIBUSDT: 6, COMPUSDT: 3, ETCUSDT: 3, ZECUSDT: 2,
       XMRUSDT: 2, LRCUSDT: 4, QNTUSDT: 3, CRVUSDT: 4, UNIUSDT: 3, BCHUSDT: 2, XLMUSDT: 4, ATOMUSDT: 3,
-      MATICUSDT: 4, AVAXUSDT: 3, TRXUSDT: 4, EOSUSDT: 3, NEARUSDT: 3, FILUSDT: 3
+      MATICUSDT: 4, AVAXUSDT: 3, TRXUSDT: 4, EOSUSDT: 3, NEARUSDT: 3, FILUSDT: 3,
+
+      // +30 new
+      OPUSDT: 3, ARBUSDT: 3, APTUSDT: 3, SUIUSDT: 3, INJUSDT: 3, RNDRUSDT: 3, FTMUSDT: 4, GALAUSDT: 5,
+      THETAUSDT: 3, SANDUSDT: 4, MANAUSDT: 4, AXSUSDT: 3, CFXUSDT: 5, ICPUSDT: 3, LDOUSDT: 3, PEPEUSDT: 8,
+      FLOKIUSDT: 7, WIFUSDT: 4, ARKUSDT: 3, IOTAUSDT: 4, KASUSDT: 4, PYTHUSDT: 4, STRKUSDT: 3, JUPUSDT: 4,
+      APEUSDT: 3, BLURUSDT: 4, SEIUSDT: 4, TIAUSDT: 3, TONUSDT: 3, ONDOUSDT: 4
     };
     function getPrecision(sym) { return symbolPrecisions[sym] ?? 2; }
     function formatBySymbol(sym, x) {
@@ -140,14 +147,22 @@
     }
 
     /** -----------------------------
-     * Maintenance Margin Rate (simplified symbol map)
+     * Maintenance Margin Rate (expanded map)
      * ------------------------------*/
     const maintenanceMarginRates = {
+      // existing
       BTCUSDT: 0.004, ETHUSDT: 0.005, BNBUSDT: 0.005, ADAUSDT: 0.010, SOLUSDT: 0.008, XRPUSDT: 0.010,
       DOTUSDT: 0.010, LTCUSDT: 0.010, LINKUSDT: 0.010, DOGEUSDT: 0.012, AAVEUSDT: 0.010, SUSHIUSDT: 0.015,
       SHIBUSDT: 0.020, COMPUSDT: 0.010, ETCUSDT: 0.010, ZECUSDT: 0.015, XMRUSDT: 0.020, LRCUSDT: 0.020,
       QNTUSDT: 0.015, CRVUSDT: 0.020, UNIUSDT: 0.010, BCHUSDT: 0.010, XLMUSDT: 0.015, ATOMUSDT: 0.010,
-      MATICUSDT: 0.010, AVAXUSDT: 0.010, TRXUSDT: 0.020, EOSUSDT: 0.015, NEARUSDT: 0.020, FILUSDT: 0.015
+      MATICUSDT: 0.010, AVAXUSDT: 0.010, TRXUSDT: 0.020, EOSUSDT: 0.015, NEARUSDT: 0.020, FILUSDT: 0.015,
+
+      // +30 new (reasonable defaults by volatility tier)
+      OPUSDT: 0.015, ARBUSDT: 0.020, APTUSDT: 0.015, SUIUSDT: 0.020, INJUSDT: 0.015, RNDRUSDT: 0.015,
+      FTMUSDT: 0.020, GALAUSDT: 0.025, THETAUSDT: 0.020, SANDUSDT: 0.020, MANAUSDT: 0.020, AXSUSDT: 0.020,
+      CFXUSDT: 0.025, ICPUSDT: 0.015, LDOUSDT: 0.020, PEPEUSDT: 0.030, FLOKIUSDT: 0.030, WIFUSDT: 0.030,
+      ARKUSDT: 0.020, IOTAUSDT: 0.020, KASUSDT: 0.025, PYTHUSDT: 0.020, STRKUSDT: 0.020, JUPUSDT: 0.020,
+      APEUSDT: 0.020, BLURUSDT: 0.020, SEIUSDT: 0.020, TIAUSDT: 0.020, TONUSDT: 0.015, ONDOUSDT: 0.020
     };
     function getMaintRate(sym) { return maintenanceMarginRates[sym] ?? 0.01; }
 
@@ -159,9 +174,15 @@
     const updateInterval = 2000;                  // ms
     const driftPerUpdate = 0.0002;                // slow upward drift
     const jitter = 0.0015;                        // ±0.15% jitter each tick
-    const tradeCount = 20;                        // number of panels
-    const marginMin = 50;                         // requested margin range
+    const tradeCount = 50;                        // total panels
+    const marginMin = 50;
     const marginMax = 1000;
+
+    // NEW: controlled losers config
+    const LOSER_COUNT = 3;                        // exactly 3 losing coins
+    const LOSS_USD_MIN = 0.75;                    // small USD loss lower bound
+    const LOSS_USD_MAX = 2.25;                    // small USD loss upper bound
+    const LOSS_JITTER = 0.15;                     // ±$ jitter around target loss each tick
 
     // helpers
     const randRange = (a, b) => a + Math.random() * (b - a);
@@ -182,7 +203,6 @@
     const maintenance = (mmr, mark, qty) => mmr * mark * qty;
 
     // Margin Balance (equity in the position bucket):
-    // Cross: effectiveMargin (used + extra buffer) + uPnL
     const marginBalance = (effectiveMargin, uPnL) => effectiveMargin + uPnL;
 
     // Liquidation Price (long) solving: M_eff + (P - E)*Q = MMR*P*Q
@@ -196,6 +216,9 @@
       if (!isFinite(P) || P <= 0) return null;
       return P;
     }
+
+    // Margin Ratio % = Maintenance / MarginBalance * 100
+    const marginRatioPct = (maint, mBal) => (mBal <= 0 ? 100 : (maint / mBal) * 100);
 
     /** -----------------------------
      * Build UI
@@ -215,7 +238,7 @@
 
     // Create one trade panel
     function createPanel({ sym, leverage, entry, mark, usedMargin, effMargin, mmr }) {
-      const mode = 'Cross'; // <— forced Cross only
+      const mode = 'Cross'; // forced Cross only
       const notionalUSDT = usedMargin * leverage;
       const qty = qtyFrom(usedMargin, leverage, entry);
       const pnl = upnl(mark, entry, qty);
@@ -299,8 +322,35 @@
       };
     }
 
-    // Margin Ratio % = Maintenance / MarginBalance * 100
-    const marginRatioPct = (maint, mBal) => (mBal <= 0 ? 100 : (maint / mBal) * 100);
+    // Recompute metrics & render to DOM for a trade
+    function renderTrade(t) {
+      const pnl = upnl(t.mark, t.entry, t.qty);
+      const roi = roiPct(pnl, t.usedMargin);
+      const maintV = maintenance(t.mmr, t.mark, t.qty);
+      const mBal = marginBalance(t.effMargin, pnl);
+      const mRatio = marginRatioPct(maintV, mBal);
+      const liq = liqPriceLong(t.entry, t.leverage, t.mmr, t.usedMargin, t.effMargin);
+
+      const pnlEl = t.node.querySelector('.value.pnl');
+      pnlEl.textContent = formatTwoDP(pnl);
+      pnlEl.classList.toggle('green', pnl >= 0);
+      pnlEl.classList.toggle('red', pnl < 0);
+
+      t.node.querySelector('.value.mark').textContent = formatBySymbol(t.sym, t.mark);
+
+      const roiEl = t.node.querySelector('.value.roi');
+      roiEl.textContent = (roi >= 0 ? '+' : '') + roi.toFixed(2) + '%';
+      roiEl.classList.toggle('green', roi >= 0);
+      roiEl.classList.toggle('red', roi < 0);
+
+      const mrEl = t.node.querySelector('.value.margin-ratio-value');
+      mrEl.textContent = mRatio.toFixed(2) + '%';
+      mrEl.classList.toggle('green', mRatio < 80);
+      mrEl.classList.toggle('red', mRatio >= 80);
+
+      const liqEl = t.node.querySelector('.value.liq');
+      liqEl.textContent = (liq === null) ? '—' : formatBySymbol(t.sym, liq);
+    }
 
     /** -----------------------------
      * Live init + update
@@ -313,12 +363,13 @@
 
         const trades = [];
 
+        // build panels
         for (let i = 0; i < tradeCount; i++) {
           const sym = symbols[i % symbols.length];
           const live = priceMap[sym];
           if (!live || !isFinite(live)) continue;
 
-          // entry ≈ 6% lower than live; mark ≈ 2% lower than live
+          // entry ≈ 6% lower than live; mark ≈ 2% lower than live (profitable baseline)
           const entry = live * 0.94;
           const mark0 = live * 0.98;
 
@@ -340,43 +391,39 @@
           feedDiv.appendChild(panelState.node);
         }
 
-        // periodic updates: gentle drift + small jitter; recalc all metrics from prices
+        // pick exactly 3 losers & set small USD loss
+        const loserIndices = new Set();
+        while (loserIndices.size < Math.min(LOSER_COUNT, trades.length)) {
+          loserIndices.add(Math.floor(Math.random() * trades.length));
+        }
+        [...loserIndices].forEach(idx => {
+          const t = trades[idx];
+          t.isLoser = true;
+          // target negative PnL in USD (small loss)
+          t.targetLossUSD = -randRange(LOSS_USD_MIN, LOSS_USD_MAX); // negative
+          const desiredMark = t.entry + (t.targetLossUSD / t.qty);   // below entry
+          t.mark = Math.max(desiredMark, 0.00000001);                // safety
+          renderTrade(t); // reflect immediately
+        });
+
+        // periodic updates
         setInterval(() => {
           trades.forEach(t => {
-            // update mark with drift ± jitter
-            let drifted = t.mark * (1 + driftPerUpdate);
-            const j = (Math.random() * 2 - 1) * jitter;
-            drifted *= (1 + j);
-            t.mark = drifted;
+            if (t.isLoser) {
+              // keep losers around their small negative loss with tiny USD jitter
+              const jitterUsd = (Math.random() * 2 - 1) * LOSS_JITTER; // ±LOSS_JITTER
+              const target = t.targetLossUSD + jitterUsd;              // still negative
+              const desiredMark = t.entry + (target / t.qty);
+              t.mark = Math.max(desiredMark, 0.00000001);
+            } else {
+              // normal upward drift + mild jitter (keeps winners green)
+              let drifted = t.mark * (1 + driftPerUpdate);
+              const j = (Math.random() * 2 - 1) * jitter;
+              drifted *= (1 + j);
+              t.mark = drifted;
+            }
 
-            // recompute metrics
-            const pnl = upnl(t.mark, t.entry, t.qty);
-            const roi = roiPct(pnl, t.usedMargin);
-            const maint = maintenance(t.mmr, t.mark, t.qty);
-            const mBal = marginBalance(t.effMargin, pnl);
-            const mRatio = marginRatioPct(maint, mBal);
-            const liq = liqPriceLong(t.entry, t.leverage, t.mmr, t.usedMargin, t.effMargin);
-
-            // update DOM
-            const pnlEl = t.node.querySelector('.value.pnl');
-            pnlEl.textContent = formatTwoDP(pnl);
-            pnlEl.classList.toggle('green', pnl >= 0);
-            pnlEl.classList.toggle('red', pnl < 0);
-
-            t.node.querySelector('.value.mark').textContent = formatBySymbol(t.sym, t.mark);
-
-            const roiEl = t.node.querySelector('.value.roi');
-            roiEl.textContent = (roi >= 0 ? '+' : '') + roi.toFixed(2) + '%';
-            roiEl.classList.toggle('green', roi >= 0);
-            roiEl.classList.toggle('red', roi < 0);
-
-            const mrEl = t.node.querySelector('.value.margin-ratio-value');
-            mrEl.textContent = mRatio.toFixed(2) + '%';
-            mrEl.classList.toggle('green', mRatio < 80);
-            mrEl.classList.toggle('red', mRatio >= 80);
-
-            const liqEl = t.node.querySelector('.value.liq');
-            liqEl.textContent = (liq === null) ? '—' : formatBySymbol(t.sym, liq);
+            renderTrade(t);
           });
         }, updateInterval);
 
